@@ -78,15 +78,38 @@ class SQLObject
 
   def self.all
     # ...
-
+    rows = DBConnection.execute(<<-SQL)
+      SELECT
+        #{table_name}.*
+      FROM
+        #{table_name}
+    SQL
+    # byebug
+    parse_all(rows)
   end
 
   def self.parse_all(results)
     # ...
+    objects = []
+    results.each do |params|
+      # byebug
+      objects << new(params)
+    end
+    objects
   end
 
   def self.find(id)
     # ...
+    obj = DBConnection.execute(<<-SQL, id)
+      SELECT
+        *
+      FROM
+        #{table_name}
+      WHERE
+        id = ?
+    SQL
+    parse_all(obj).first
+    # byebug
   end
 
   def name
@@ -96,7 +119,10 @@ class SQLObject
   def initialize(params = {})
     # ...
     # byebug
-
+    params.each_pair do |k, v|
+      raise "unknown attribute '#{k}'" unless self.class.columns.include?(k.to_sym)
+      self.send("#{k}=".to_sym, v)
+    end
   end
 
   def attributes
@@ -107,17 +133,61 @@ class SQLObject
 
   def attribute_values
     # ...
+    @attributes.values
   end
 
   def insert
     # ...
+    cols = self.class.columns[1..-1]
+    cols.map!(&:to_s)
+    col_names = cols.join(', ')
+    # attrvalues =
+    # x = map_attribute_vals_to_columns
+    question_marks = Array.new(cols.length) {"?"}.join(', ')
+    # byebug
+    DBConnection.execute(<<-SQL, *attribute_values)
+      INSERT INTO
+        #{self.class.table_name} (#{col_names})
+      VALUES
+        (#{question_marks})
+    SQL
+    self.id = DBConnection.last_insert_row_id
+    # byebug
   end
+  # def map_attribute_vals_to_columns
+  #   attrs = attributes
+  #
+  #   cols = self.class.columns
+  #   attribute_values.each do |attr_val|
+  #
+  #   end
+  #   byebug
+  # end
 
   def update
     # ...
+    cols = self.class.columns[1..-1]
+    cols.map!(&:to_s)
+    col_names = cols.join(' = ?, ')
+    col_names += " = ?"
+    # my_id = self.id
+    # byebug
+    DBConnection.execute(<<-SQL, *attribute_values[1..-1], id)
+      UPDATE
+        #{self.class.table_name}
+      SET
+        #{col_names}
+      WHERE
+        id = ?
+    SQL
   end
 
   def save
     # ...
+    if id.nil?
+      insert
+    else
+      update
+    end
   end
 end
