@@ -5,6 +5,7 @@ require 'byebug'
 # of this project. It was only a warm up.
 
 class SQLObject
+
   # @@table_name = nil
   @@attributes = {}
   def self.columns
